@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -109,6 +109,8 @@ def discover_downloads(
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
+    page_host = urlparse(page_url).netloc
+
     candidates: list[CandidateDownload] = []
 
     for a in soup.find_all("a", href=True):
@@ -116,8 +118,30 @@ def discover_downloads(
         if not href:
             continue
         full_url = urljoin(page_url, href)
-        if not full_url.lower().endswith(DOWNLOAD_EXTENSIONS):
-            continue
+
+        url_lower = full_url.lower()
+
+        # First: direct links that already have a known installer extension.
+        if not url_lower.endswith(DOWNLOAD_EXTENSIONS):
+            # Second chance: some sites (like GitKraken) use intermediate
+            # "pretty" URLs such as `/download/windows64` which then redirect
+            # to the actual `.msi`/`.dmg`/`.deb` file. For URLs on the same
+            # host that look like download endpoints, follow the redirect
+            # with a HEAD request and inspect the final URL.
+            parsed = urlparse(full_url)
+            if parsed.netloc == page_host and "download" in parsed.path:
+                try:
+                    head_resp = sess.head(full_url, allow_redirects=True, timeout=30)
+                    final_url = str(head_resp.url)
+                    if not str(final_url).lower().endswith(DOWNLOAD_EXTENSIONS):
+                        continue
+                    full_url = final_url
+                    url_lower = full_url.lower()
+                except Exception:
+                    # If anything goes wrong, just skip this link.
+                    continue
+            else:
+                continue
 
         base_target = None
         if expected_targets:

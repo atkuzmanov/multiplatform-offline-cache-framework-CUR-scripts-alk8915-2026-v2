@@ -1,0 +1,10 @@
+#!/bin/sh
+'''exec' "/home/ltp15vg2ub1/Documents/Sandbox-files-alk8915-2026-1/Repositories-files-alk8915-2026/multiplatform-offline-cache-framework CUR scripts alk8915 2026 v2/.venv/bin/python3" "$0" "$@"
+' '''
+# -*- coding: utf-8 -*-
+import re
+import sys
+from tqdm.cli import main
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(main())
